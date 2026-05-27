@@ -7,6 +7,8 @@ import { useChatStore } from '../store/chatStore'
 import { useAuthStore } from '../store/authStore'
 import { socketService } from '../services/socket.service'
 import { Button } from '../components/ui/Button'
+import ActivityFeed from '../components/rooms/ActivityFeed'
+import InviteModal from '../components/rooms/InviteModal'
 
 export default function Room() {
   const { id } = useParams()
@@ -19,6 +21,8 @@ export default function Room() {
   const [participants, setParticipants] = useState([])
   const [socketConnected, setSocketConnected] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
+  const [activeTab, setActiveTab] = useState('chat')
+  const [showInviteModal, setShowInviteModal] = useState(false)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -204,6 +208,33 @@ export default function Room() {
           <div>
             <h1 className="text-xl font-bold text-gray-900">{currentRoom.name}</h1>
             <p className="text-xs text-gray-500">{currentRoom.description || 'No description'}</p>
+            
+            {/* Room ID Display with Copy Button */}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-gray-400">Room ID:</span>
+              <code className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                {id}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(id)
+                  toast.success('Room ID copied!')
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800"
+                title="Copy Room ID"
+              >
+                📋 Copy
+              </button>
+              {isOwner && (
+                <button
+                  onClick={() => setShowInviteModal(true)}
+                  className="text-xs bg-green-500 text-white px-2 py-0.5 rounded hover:bg-green-600"
+                >
+                  👥 Invite
+                </button>
+              )}
+            </div>
+            
             {isOwner && <p className="text-xs text-blue-600 mt-0.5">👑 Room Owner</p>}
           </div>
           <Button onClick={handleLeaveRoom} variant="outline" size="sm">
@@ -239,70 +270,100 @@ export default function Room() {
             </div>
           </div>
 
-          {/* Chat Container - Takes remaining space with scrolling */}
+          {/* Chat and Activity Tabs Container */}
           <div className="flex-1 flex flex-col p-4 min-h-0">
             <div className="bg-white rounded-lg border shadow-sm flex-1 flex flex-col overflow-hidden">
-              <div className="p-3 border-b bg-gray-50 flex-shrink-0">
-                <h3 className="font-semibold text-gray-700 text-sm">💬 Room Chat</h3>
-              </div>
-              
-              {/* Messages Container - Scrollable */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
-                {messages.length === 0 ? (
-                  <div className="text-center text-gray-400 py-8">
-                    No messages yet. Start the conversation!
-                  </div>
-                ) : (
-                  messages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex ${msg.user?._id === user?._id ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[70%] rounded-lg px-3 py-1.5 ${
-                          msg.user?._id === user?._id
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
-                      >
-                        {msg.user?._id !== user?._id && (
-                          <p className="text-xs font-semibold mb-0.5 text-blue-600">
-                            {msg.user?.name}
-                          </p>
-                        )}
-                        <p className="text-sm break-words whitespace-pre-wrap">
-                          {msg.content}
-                        </p>
-                        <p className="text-xs mt-0.5 opacity-70">
-                          {msg.createdAt 
-                            ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Message Input - Fixed at bottom */}
-              <div className="p-3 border-t bg-white flex-shrink-0">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder={socketConnected ? "Type a message..." : "Connecting..."}
-                    disabled={!socketConnected}
-                    className="flex-1 px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                  />
-                  <Button onClick={handleSendMessage} disabled={!socketConnected} size="sm">
-                    Send
-                  </Button>
+              {/* Tab Headers */}
+              <div className="border-b bg-gray-50 flex-shrink-0">
+                <div className="flex">
+                  <button
+                    className={`px-4 py-2.5 text-sm font-medium transition-all ${
+                      activeTab === 'chat' 
+                        ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                    onClick={() => setActiveTab('chat')}
+                  >
+                    💬 Chat
+                  </button>
+                  <button
+                    className={`px-4 py-2.5 text-sm font-medium transition-all ${
+                      activeTab === 'activity' 
+                        ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                    onClick={() => setActiveTab('activity')}
+                  >
+                    📋 Activity Feed
+                  </button>
                 </div>
               </div>
+              
+              {/* Chat Tab Content */}
+              {activeTab === 'chat' ? (
+                <>
+                  {/* Messages Container - Scrollable */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
+                    {messages.length === 0 ? (
+                      <div className="text-center text-gray-400 py-8">
+                        No messages yet. Start the conversation!
+                      </div>
+                    ) : (
+                      messages.map((msg, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex ${msg.user?._id === user?._id ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[70%] rounded-lg px-3 py-1.5 ${
+                              msg.user?._id === user?._id
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-900'
+                            }`}
+                          >
+                            {msg.user?._id !== user?._id && (
+                              <p className="text-xs font-semibold mb-0.5 text-blue-600">
+                                {msg.user?.name}
+                              </p>
+                            )}
+                            <p className="text-sm break-words whitespace-pre-wrap">
+                              {msg.content}
+                            </p>
+                            <p className="text-xs mt-0.5 opacity-70">
+                              {msg.createdAt 
+                                ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Message Input - Fixed at bottom */}
+                  <div className="p-3 border-t bg-white flex-shrink-0">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                        placeholder={socketConnected ? "Type a message..." : "Connecting..."}
+                        disabled={!socketConnected}
+                        className="flex-1 px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                      />
+                      <Button onClick={handleSendMessage} disabled={!socketConnected} size="sm">
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Activity Tab Content */
+                <ActivityFeed roomId={id} />
+              )}
             </div>
           </div>
         </div>
@@ -354,6 +415,15 @@ export default function Room() {
           </div>
         </div>
       </div>
+
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <InviteModal
+          roomId={id}
+          roomName={currentRoom?.name}
+          onClose={() => setShowInviteModal(false)}
+        />
+      )}
     </div>
   )
 }

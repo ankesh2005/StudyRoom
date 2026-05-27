@@ -6,6 +6,7 @@ import * as authController from '../controllers/authController.js';
 import * as roomController from '../controllers/roomController.js';
 import * as sessionController from '../controllers/sessionController.js';
 import * as analyticsController from '../controllers/analyticsController.js';
+import * as activityController from '../controllers/activityController.js';
 
 const router = express.Router();
 
@@ -36,5 +37,9 @@ router.get('/analytics/study-history', protect, analyticsController.getStudyHist
 
 // delete routes
 router.delete('/rooms/:id', protect, roomController.deleteRoom);
+
+// Activity routes
+router.get('/rooms/:roomId/activities', protect, activityController.getRoomActivities);
+router.get('/analytics/activities', protect, activityController.getUserActivities);
 
 export default router;

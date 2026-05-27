@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import apiRoutes from './src/routes/api.js';
 import User from './src/models/User.js';
+import Room from './src/models/Room.js';
+import Activity from './src/models/Activity.js';
 
 dotenv.config();
 
@@ -49,8 +51,37 @@ const io = new Server(server, {
 });
 
 // Store connected users with their real names
-const connectedUsers = new Map(); // socketId -> user info
-const roomParticipants = new Map(); // roomId -> Map of userId -> user info
+const connectedUsers = new Map();
+const roomParticipants = new Map();
+
+// Helper function to check if room is active
+const isRoomActive = async (roomId) => {
+  try {
+    const room = await Room.findOne({ _id: roomId, status: 'active' });
+    return !!room;
+  } catch (error) {
+    console.error('Error checking room status:', error);
+    return false;
+  }
+};
+
+// Helper function to save activity
+const saveActivity = async (userId, roomId, action, details = {}) => {
+  try {
+    const user = await User.findById(userId);
+    await Activity.create({
+      user: userId,
+      userName: user?.name || 'Unknown',
+      room: roomId,
+      action: action,
+      details: details,
+      ip: 'socket',
+      userAgent: 'websocket'
+    });
+  } catch (error) {
+    console.error('Error saving activity:', error);
+  }
+};
 
 // Socket.IO authentication middleware
 io.use(async (socket, next) => {
@@ -60,17 +91,13 @@ io.use(async (socket, next) => {
       return next(new Error('Authentication required'));
     }
     
-    // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get user from database
     const user = await User.findById(decoded.userId);
     
     if (!user) {
       return next(new Error('User not found'));
     }
     
-    // Attach user info to socket
     socket.userId = user._id.toString();
     socket.userName = user.name;
     socket.userEmail = user.email;
@@ -86,124 +113,154 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   console.log(`🔌 User ${socket.userName} (${socket.userId}) connected`);
   
-  // Store user connection with real name
   connectedUsers.set(socket.id, {
     socketId: socket.id,
     userId: socket.userId,
     userName: socket.userName,
     userEmail: socket.userEmail
   });
-  
+
   // Join room event
-  socket.on('join_room', ({ roomId }) => {
-    console.log(`${socket.userName} joining room: ${roomId}`);
-    
-    // Leave all previous rooms
-    const previousRooms = Array.from(socket.rooms);
-    previousRooms.forEach(room => {
-      if (room !== socket.id) {
-        socket.leave(room);
-      }
-    });
-    
-    // Join new room
-    socket.join(roomId);
-    
-    // Track participant with real user info
-    if (!roomParticipants.has(roomId)) {
-      roomParticipants.set(roomId, new Map());
-    }
-    const participants = roomParticipants.get(roomId);
-    participants.set(socket.userId, {
-      userId: socket.userId,
-      userName: socket.userName,
-      socketId: socket.id,
-      joinedAt: new Date()
-    });
-    
-    // Get all participants list
-    const allParticipants = Array.from(participants.values());
-    
-    // Notify others in room
-    socket.to(roomId).emit('user_joined', {
-      userId: socket.userId,
-      userName: socket.userName,
-      timestamp: new Date()
-    });
-    
-    // Send updated participant list to everyone
-    io.to(roomId).emit('participants_update', {
-      participants: allParticipants,
-      totalCount: allParticipants.length
-    });
-    
-    // Send success response to the joining user
-    socket.emit('room_joined', {
-      success: true,
-      roomId,
-      participants: allParticipants
-    });
-    
-    console.log(`Total participants in room ${roomId}: ${allParticipants.length}`);
-  });
-  
-  // Leave room event
-  socket.on('leave_room', ({ roomId }) => {
-    console.log(`${socket.userName} leaving room: ${roomId}`);
-    
-    socket.leave(roomId);
-    
-    // Remove from room participants
-    if (roomParticipants.has(roomId)) {
-      const participants = roomParticipants.get(roomId);
-      participants.delete(socket.userId);
+  socket.on('join_room', async ({ roomId }) => {
+    try {
+      console.log(`${socket.userName} joining room: ${roomId}`);
       
-      // Get updated participants list
+      // Check if room is active
+      const active = await isRoomActive(roomId);
+      if (!active) {
+        socket.emit('error', { message: 'Room is no longer active' });
+        return;
+      }
+      
+      // Leave all previous rooms
+      const previousRooms = Array.from(socket.rooms);
+      previousRooms.forEach(room => {
+        if (room !== socket.id) {
+          socket.leave(room);
+        }
+      });
+      
+      // Join new room
+      socket.join(roomId);
+      
+      // Track participant
+      if (!roomParticipants.has(roomId)) {
+        roomParticipants.set(roomId, new Map());
+      }
+      const participants = roomParticipants.get(roomId);
+      participants.set(socket.userId, {
+        userId: socket.userId,
+        userName: socket.userName,
+        socketId: socket.id,
+        joinedAt: new Date()
+      });
+      
+      // Get all participants list
       const allParticipants = Array.from(participants.values());
       
-      // Broadcast updated list to remaining participants
+      // Notify others
+      socket.to(roomId).emit('user_joined', {
+        userId: socket.userId,
+        userName: socket.userName,
+        timestamp: new Date()
+      });
+      
+      // Send updated participant list to everyone
       io.to(roomId).emit('participants_update', {
         participants: allParticipants,
         totalCount: allParticipants.length
       });
       
-      if (participants.size === 0) {
-        roomParticipants.delete(roomId);
-      }
+      // Send success response
+      socket.emit('room_joined', {
+        success: true,
+        roomId,
+        participants: allParticipants
+      });
+      
+      // Save activity
+      await saveActivity(socket.userId, roomId, 'room_joined', { joinedAt: new Date() });
+      
+      console.log(`Total participants in room ${roomId}: ${allParticipants.length}`);
+    } catch (error) {
+      console.error('Join room error:', error);
+      socket.emit('error', { message: error.message });
     }
-    
-    // Notify others
-    socket.to(roomId).emit('user_left', {
-      userId: socket.userId,
-      userName: socket.userName,
-      timestamp: new Date()
-    });
   });
   
-  // Send message event - NOW WITH REAL USER NAMES
-  socket.on('send_message', ({ roomId, content }) => {
-    console.log(`${socket.userName} sent message in room ${roomId}: ${content}`);
-    
-    const messageData = {
-      _id: Date.now().toString(),
-      content,
-      user: {
-        _id: socket.userId,
-        name: socket.userName,  // Real user name from database
-        email: socket.userEmail
-      },
-      createdAt: new Date(),
-      room: roomId
-    };
-    
-    // Broadcast to everyone in the room including sender
-    io.to(roomId).emit('new_message', {
-      message: messageData,
-      roomId
-    });
+  // Leave room event
+  socket.on('leave_room', async ({ roomId }) => {
+    try {
+      console.log(`${socket.userName} leaving room: ${roomId}`);
+      
+      socket.leave(roomId);
+      
+      // Remove from room participants
+      if (roomParticipants.has(roomId)) {
+        const participants = roomParticipants.get(roomId);
+        participants.delete(socket.userId);
+        
+        const allParticipants = Array.from(participants.values());
+        io.to(roomId).emit('participants_update', {
+          participants: allParticipants,
+          totalCount: allParticipants.length
+        });
+        
+        if (participants.size === 0) {
+          roomParticipants.delete(roomId);
+        }
+      }
+      
+      socket.to(roomId).emit('user_left', {
+        userId: socket.userId,
+        userName: socket.userName,
+        timestamp: new Date()
+      });
+      
+      // Save activity
+      await saveActivity(socket.userId, roomId, 'room_left', { leftAt: new Date() });
+    } catch (error) {
+      console.error('Leave room error:', error);
+    }
   });
   
-  // Typing indicator with real name
+  // Send message event
+  socket.on('send_message', async ({ roomId, content }) => {
+    try {
+      console.log(`${socket.userName} sent message in room ${roomId}`);
+      
+      // Check if room is active
+      const active = await isRoomActive(roomId);
+      if (!active) {
+        socket.emit('error', { message: 'Room is no longer active' });
+        return;
+      }
+      
+      const messageData = {
+        _id: Date.now().toString(),
+        content,
+        user: {
+          _id: socket.userId,
+          name: socket.userName,
+          email: socket.userEmail
+        },
+        createdAt: new Date(),
+        room: roomId
+      };
+      
+      io.to(roomId).emit('new_message', {
+        message: messageData,
+        roomId
+      });
+      
+      // Save activity
+      await saveActivity(socket.userId, roomId, 'message_sent', { message: content.substring(0, 200) });
+    } catch (error) {
+      console.error('Send message error:', error);
+    }
+  });
+  
+  // Typing indicator
   socket.on('typing', ({ roomId, isTyping }) => {
     socket.to(roomId).emit('user_typing', {
       userId: socket.userId,
@@ -213,28 +270,52 @@ io.on('connection', (socket) => {
     });
   });
   
-  // Start session with real name
-  socket.on('start_session', ({ roomId }) => {
-    console.log(`Session started in room ${roomId} by ${socket.userName}`);
-    
-    io.to(roomId).emit('session_started', {
-      sessionId: Date.now().toString(),
-      startTime: new Date(),
-      startedBy: socket.userId,
-      startedByName: socket.userName
-    });
+  // Start session
+  socket.on('start_session', async ({ roomId }) => {
+    try {
+      console.log(`Session started in room ${roomId} by ${socket.userName}`);
+      
+      const active = await isRoomActive(roomId);
+      if (!active) {
+        socket.emit('error', { message: 'Room is no longer active' });
+        return;
+      }
+      
+      io.to(roomId).emit('session_started', {
+        sessionId: Date.now().toString(),
+        startTime: new Date(),
+        startedBy: socket.userId,
+        startedByName: socket.userName
+      });
+      
+      await saveActivity(socket.userId, roomId, 'session_started', { startTime: new Date() });
+    } catch (error) {
+      console.error('Start session error:', error);
+    }
   });
   
-  // End session with real name
-  socket.on('end_session', ({ roomId, duration }) => {
-    console.log(`Session ended in room ${roomId} by ${socket.userName}`);
-    
-    io.to(roomId).emit('session_ended', {
-      sessionId: Date.now().toString(),
-      duration: duration || 0,
-      endedBy: socket.userId,
-      endedByName: socket.userName
-    });
+  // End session
+  socket.on('end_session', async ({ roomId, duration }) => {
+    try {
+      console.log(`Session ended in room ${roomId} by ${socket.userName}`);
+      
+      const active = await isRoomActive(roomId);
+      if (!active) {
+        socket.emit('error', { message: 'Room is no longer active' });
+        return;
+      }
+      
+      io.to(roomId).emit('session_ended', {
+        sessionId: Date.now().toString(),
+        duration: duration || 0,
+        endedBy: socket.userId,
+        endedByName: socket.userName
+      });
+      
+      await saveActivity(socket.userId, roomId, 'session_ended', { duration: duration || 0 });
+    } catch (error) {
+      console.error('End session error:', error);
+    }
   });
   
   // Timer sync
@@ -247,10 +328,9 @@ io.on('connection', (socket) => {
     });
   });
   
-  // Kick participant (only room owner can do this - you'll need to check room ownership)
+  // Kick participant
   socket.on('kick_participant', async ({ roomId, userId, userName }) => {
     try {
-      // Check if the kicker is the room owner
       const room = await Room.findOne({
         _id: roomId,
         owner: socket.userId,
@@ -262,7 +342,6 @@ io.on('connection', (socket) => {
         return;
       }
       
-      // Find the participant's socket
       let targetSocketId = null;
       if (roomParticipants.has(roomId)) {
         const participants = roomParticipants.get(roomId);
@@ -273,27 +352,23 @@ io.on('connection', (socket) => {
         }
       }
       
-      // Notify the kicked user
       if (targetSocketId) {
         io.to(targetSocketId).emit('kicked_from_room', {
           roomId,
           message: `You were kicked from the room by ${socket.userName}`
         });
         
-        // Disconnect the kicked user from the room
         const targetSocket = io.sockets.sockets.get(targetSocketId);
         if (targetSocket) {
           targetSocket.leave(roomId);
         }
       }
       
-      // Remove user from room participants in database
       await Room.updateOne(
         { _id: roomId },
         { $pull: { participants: { user: userId } } }
       );
       
-      // Broadcast updated participant list
       if (roomParticipants.has(roomId)) {
         const participants = roomParticipants.get(roomId);
         const allParticipants = Array.from(participants.values());
@@ -303,7 +378,6 @@ io.on('connection', (socket) => {
         });
       }
       
-      // Notify room about kick
       io.to(roomId).emit('user_kicked', {
         userId,
         userName,
@@ -311,8 +385,9 @@ io.on('connection', (socket) => {
         timestamp: new Date()
       });
       
-      console.log(`User ${userName} was kicked from room ${roomId} by ${socket.userName}`);
+      await saveActivity(socket.userId, roomId, 'user_kicked', { kickedUser: userName });
       
+      console.log(`User ${userName} was kicked from room ${roomId} by ${socket.userName}`);
     } catch (error) {
       console.error('Kick participant error:', error);
       socket.emit('error', { message: error.message });
@@ -320,10 +395,9 @@ io.on('connection', (socket) => {
   });
   
   // Disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log(`🔌 User ${socket.userName} (${socket.userId}) disconnected`);
     
-    // Remove from all rooms
     for (const [roomId, participants] of roomParticipants.entries()) {
       if (participants.has(socket.userId)) {
         participants.delete(socket.userId);
@@ -349,9 +423,6 @@ io.on('connection', (socket) => {
     connectedUsers.delete(socket.id);
   });
 });
-
-// Import Room model for kick functionality
-import Room from './src/models/Room.js';
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/studyroom')

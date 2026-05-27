@@ -33,6 +33,9 @@ export default function Room() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [sharedGoals, setSharedGoals] = useState(null);
 const [goalNotified, setGoalNotified] = useState(false);
+const [typingUsers, setTypingUsers] = useState(new Map());
+const typingTimeoutRef = useRef(null);
+
   useEffect(() => {
     if (id) {
       fetchRoom(id);
@@ -133,6 +136,32 @@ useEffect(() => {
       scrollToBottom();
     });
 
+ // user_typing'
+socketService.on("user_typing", (data) => {
+  console.log("Typing event received:", data);
+  if (data.isTyping) {
+    setTypingUsers(prev => {
+      const newMap = new Map(prev);
+      newMap.set(data.userId, data.userName);
+      return newMap;
+    });
+  } else {
+    setTypingUsers(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(data.userId);
+      return newMap;
+    });
+  }
+  
+  // Auto-hide typing indicator after 3 seconds
+  setTimeout(() => {
+    setTypingUsers(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(data.userId);
+      return newMap;
+    });
+  }, 3000);
+});
     //goald for all
     socketService.on("session_goals_updated", (data) => {
       console.log("Session goals updated by another participant:", data);
@@ -243,6 +272,41 @@ socketService.on("goal_achieved", (data) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleTypingStart = () => {
+  if (!socketConnected) return;
+  
+  socketService.emit("typing", { 
+    roomId: id, 
+    isTyping: true 
+  });
+  
+  // Clear existing timeout
+  if (typingTimeoutRef.current) {
+    clearTimeout(typingTimeoutRef.current);
+  }
+  
+  // Set timeout to stop typing after 2 seconds of no typing
+  typingTimeoutRef.current = setTimeout(() => {
+    socketService.emit("typing", { 
+      roomId: id, 
+      isTyping: false 
+    });
+  }, 2000);
+};
+
+const handleTypingStop = () => {
+  if (!socketConnected) return;
+  
+  if (typingTimeoutRef.current) {
+    clearTimeout(typingTimeoutRef.current);
+  }
+  
+  socketService.emit("typing", { 
+    roomId: id, 
+    isTyping: false 
+  });
+};
 
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
@@ -556,33 +620,32 @@ socketService.on("goal_achieved", (data) => {
                     <div ref={messagesEndRef} />
                   </div>
 
+                  {/* ADD TYPING INDICATOR  */}
+{typingUsers.size > 0 && (
+  <div className="px-4 py-1 text-xs text-gray-500 italic">
+    {Array.from(typingUsers.values()).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+  </div>
+)}
+
                   {/* Message Input - Fixed at bottom */}
                   <div className="p-3 border-t bg-white flex-shrink-0">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={messageInput}
-                        onChange={(e) => setMessageInput(e.target.value)}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleSendMessage()
-                        }
-                        placeholder={
-                          socketConnected
-                            ? "Type a message..."
-                            : "Connecting..."
-                        }
-                        disabled={!socketConnected}
-                        className="flex-1 px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                      />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!socketConnected}
-                        size="sm"
-                      >
-                        Send
-                      </Button>
-                    </div>
-                  </div>
+  <div className="flex gap-2">
+    <input
+      type="text"
+      value={messageInput}
+      onChange={(e) => setMessageInput(e.target.value)}
+      onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+      onFocus={handleTypingStart}
+      onBlur={handleTypingStop}
+      placeholder={socketConnected ? "Type a message..." : "Connecting..."}
+      disabled={!socketConnected}
+      className="flex-1 px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+    />
+    <Button onClick={handleSendMessage} disabled={!socketConnected} size="sm">
+      Send
+    </Button>
+  </div>
+</div>
                 </>
               ) : activeTab === "activity" ? (
   <ActivityFeed roomId={id} />

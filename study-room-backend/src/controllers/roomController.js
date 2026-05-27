@@ -1,3 +1,5 @@
+
+import mongoose from 'mongoose';
 import Room from '../models/Room.js';
 import Activity from '../models/Activity.js';
 import User from '../models/User.js';
@@ -104,8 +106,18 @@ export const getRooms = async (req, res) => {
 // @access  Private
 export const getRoom = async (req, res) => {
   try {
+    const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid room ID format. Room ID must be a 24-character hex string.'
+      });
+    }
+    
     const room = await Room.findOne({
-      _id: req.params.id,
+      _id: id,
       status: 'active'
     })
     .populate('owner', 'name email')
@@ -151,8 +163,18 @@ export const getRoom = async (req, res) => {
 // @access  Private
 export const joinRoom = async (req, res) => {
   try {
+    const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid room ID format. Room ID must be a 24-character hex string.'
+      });
+    }
+    
     const room = await Room.findOne({
-      _id: req.params.id,
+      _id: id,
       status: 'active'
     });
     
@@ -231,6 +253,16 @@ export const joinRoom = async (req, res) => {
 // @access  Private
 export const leaveRoom = async (req, res) => {
   try {
+    const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid room ID format'
+      });
+    }
+
     const room = await Room.findById(req.params.id);
     
     if (!room) {
@@ -325,6 +357,15 @@ export const getMyRooms = async (req, res) => {
 // @access  Private (Owner only)
 export const deleteRoom = async (req, res) => {
   try {
+    const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid room ID format'
+      });
+    }
     const room = await Room.findOne({
       _id: req.params.id,
       owner: req.user._id

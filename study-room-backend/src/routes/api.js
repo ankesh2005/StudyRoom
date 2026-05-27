@@ -46,4 +46,45 @@ router.get('/analytics/activities', protect, activityController.getUserActivitie
 router.put('/sessions/:sessionId/goals', protect, sessionController.updateSessionGoals);
 router.get('/sessions/:sessionId/summary', protect, sessionController.getSessionSummary);
 
+// Get room notes
+router.get('/rooms/:roomId/notes', protect, async (req, res) => {
+  try {
+    const Room = await import('../models/Room.js');
+    const room = await Room.default.findById(req.params.roomId);
+    
+    if (!room) {
+      return res.status(404).json({ success: false, message: 'Room not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: { notes: room.sharedNotes || '' }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Save room notes
+router.post('/rooms/:roomId/notes', protect, async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const Room = await import('../models/Room.js');
+    
+    const room = await Room.default.findByIdAndUpdate(
+      req.params.roomId,
+      { sharedNotes: notes },
+      { new: true }
+    );
+    
+    res.json({
+      success: true,
+      message: 'Notes saved successfully',
+      data: { notes: room.sharedNotes }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

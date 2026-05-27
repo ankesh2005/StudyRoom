@@ -340,7 +340,7 @@ socket.on('update_session_goals', async ({ roomId, sessionId, goals }) => {
       console.error('Send message error:', error);
     }
   });
-  
+
   // Goal achievement broadcast to all participants
 socket.on('goal_achieved', ({ roomId, userName, goal }) => {
   console.log(`🏆 Goal achieved in room ${roomId} by ${userName}: ${goal}`);
@@ -360,6 +360,16 @@ socket.on('goal_achieved', ({ roomId, userName, goal }) => {
       timestamp: new Date()
     });
   });
+
+  // Update notes and broadcast to all participants
+socket.on('update_notes', ({ roomId, notes, updatedBy }) => {
+  console.log(`Notes updated in room ${roomId} by ${updatedBy}`);
+  io.to(roomId).emit('notes_updated', {
+    notes: notes,
+    updatedBy: updatedBy,
+    timestamp: new Date()
+  });
+});
   
   // Start session with real database session
 socket.on('start_session', async ({ roomId }) => {
@@ -410,6 +420,7 @@ socket.on('start_session', async ({ roomId }) => {
     socket.emit('error', { message: 'Failed to start session' });
   }
 });
+
   
 // End session and update database
 socket.on('end_session', async ({ roomId, sessionId, duration }) => {

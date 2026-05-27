@@ -54,6 +54,10 @@ const roomSchema = new mongoose.Schema({
     enum: ['active', 'archived', 'deleted'],
     default: 'active'
   },
+  sharedNotes: {
+  type: String,
+  default: ''
+},
   currentSession: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Session',

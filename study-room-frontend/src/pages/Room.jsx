@@ -11,6 +11,7 @@ import ActivityFeed from "../components/rooms/ActivityFeed";
 import InviteModal from "../components/rooms/InviteModal";
 import SessionGoals from "../components/timer/SessionGoals";
 import SessionSummary from "../components/timer/SessionSummary";
+import SharedNotes from '../components/notes/SharedNotes';
 
 export default function Room() {
   const { id } = useParams();
@@ -481,6 +482,7 @@ socketService.on("goal_achieved", (data) => {
                   >
                     💬 Chat
                   </button>
+
                   <button
                     className={`px-4 py-2.5 text-sm font-medium transition-all ${
                       activeTab === "activity"
@@ -491,6 +493,18 @@ socketService.on("goal_achieved", (data) => {
                   >
                     📋 Activity Feed
                   </button>
+
+                  {/* ADD THIS NOTES BUTTON */}
+  <button
+    className={`px-4 py-2.5 text-sm font-medium transition-all ${
+      activeTab === "notes"
+        ? "text-blue-600 border-b-2 border-blue-600 bg-white"
+        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+    }`}
+    onClick={() => setActiveTab("notes")}
+  >
+    📝 Shared Notes
+  </button>
                 </div>
               </div>
 
@@ -570,10 +584,15 @@ socketService.on("goal_achieved", (data) => {
                     </div>
                   </div>
                 </>
-              ) : (
-                /* Activity Tab Content */
-                <ActivityFeed roomId={id} />
-              )}
+              ) : activeTab === "activity" ? (
+  <ActivityFeed roomId={id} />
+) : activeTab === "notes" && (
+  <SharedNotes 
+    roomId={id} 
+    socketService={socketService}
+    userName={user?.name}
+  />
+)}
             </div>
           </div>
         </div>

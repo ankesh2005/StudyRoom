@@ -1,0 +1,61 @@
+# -------------------------
+# Node.js / Express backend
+# -------------------------
+study-room-backend/node_modules/
+study-room-backend/npm-debug.log*
+study-room-backend/yarn-debug.log*
+study-room-backend/yarn-error.log*
+study-room-backend/package-lock.json
+study-room-backend/.pnpm-debug.log*
+
+# Backend environment files
+study-room-backend/.env
+study-room-backend/.env.local
+study-room-backend/.env.development.local
+study-room-backend/.env.test.local
+study-room-backend/.env.production.local
+
+# Backend logs
+study-room-backend/logs/
+study-room-backend/*.log
+study-room-backend/*.log.*
+
+# Backend build / cache
+study-room-backend/dist/
+study-room-backend/build/
+study-room-backend/.cache/
+
+# -------------------------
+# React frontend
+# -------------------------
+study-room-frontend/node_modules/
+
+# Frontend build outputs
+study-room-frontend/build/
+study-room-frontend/dist/
+study-room-frontend/.next/
+study-room-frontend/out/
+
+# Frontend coverage reports
+study-room-frontend/coverage/
+
+# Frontend environment files
+study-room-frontend/.env
+study-room-frontend/.env.local
+study-room-frontend/.env.development.local
+study-room-frontend/.env.test.local
+study-room-frontend/.env.production.local
+
+# Frontend cache
+study-room-frontend/.cache/
+study-room-frontend/.eslintcache
+
+# -------------------------
+# Common OS / Editor files
+# -------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

@@ -246,3 +246,120 @@ export const getRoomSessions = async (req, res) => {
     });
   }
 };
+
+
+
+// Update session goals
+export const updateSessionGoals = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { description, targetDuration, targetMessages } = req.body;
+    
+    console.log("Updating goals for session:", sessionId);
+    
+    const Session = await import('../models/Session.js');
+    const session = await Session.default.findById(sessionId);
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+    
+    session.goals = {
+      description,
+      targetDuration,
+      targetMessages,
+      achieved: false
+    };
+    
+    await session.save();
+    
+    res.json({
+      success: true,
+      message: 'Goals updated successfully',
+      data: { goals: session.goals }
+    });
+  } catch (error) {
+    console.error('Update goals error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating goals'
+    });
+  }
+};
+
+// Get session summary
+export const getSessionSummary = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    console.log("Getting summary for session:", sessionId);
+    
+    const Session = await import('../models/Session.js');
+    const session = await Session.default.findById(sessionId)
+      .populate('startedBy', 'name')
+      .populate('participants.user', 'name');
+    
+    if (!session) {
+      console.log("Session not found:", sessionId);
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+    
+    console.log("Session found:", session._id, "Duration:", session.duration);
+    
+    // Calculate productivity score
+    let productivityScore = 50;
+    if (session.duration >= 60) productivityScore += 20;
+    else if (session.duration >= 30) productivityScore += 10;
+    if (session.metrics?.messagesCount >= 20) productivityScore += 20;
+    else if (session.metrics?.messagesCount >= 10) productivityScore += 10;
+    if (session.goals?.achieved) productivityScore += 10;
+    productivityScore = Math.min(productivityScore, 100);
+    
+    // Generate achievements
+    const achievements = [];
+    if (session.duration >= 60) achievements.push('🎯 Studied for over an hour!');
+    if (session.metrics?.messagesCount >= 20) achievements.push('💬 Active collaboration with 20+ messages');
+    if (session.goals?.achieved) achievements.push(`🏆 Achieved session goal: ${session.goals.description}`);
+    if (session.participants?.length >= 3) achievements.push('👥 Great group study session with 3+ participants');
+    if (achievements.length === 0) achievements.push('📚 Completed a study session');
+    
+    const responseData = {
+      duration: session.duration,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      goals: session.goals || {},
+      metrics: {
+        messagesCount: session.metrics?.messagesCount || 0
+      },
+      summary: {
+        productivityScore,
+        participantsCount: session.participants?.length || 1,
+        messagesPerParticipant: session.participants?.length > 0 
+          ? Math.round((session.metrics?.messagesCount || 0) / session.participants.length) 
+          : 0,
+        achievements
+      }
+    };
+    
+    console.log("Sending summary response");
+    
+    res.json({
+      success: true,
+      data: responseData
+    });
+    
+  } catch (error) {
+    console.error('Get summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching session summary',
+      error: error.message
+    });
+  }
+};

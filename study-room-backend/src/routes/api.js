@@ -42,4 +42,8 @@ router.delete('/rooms/:id', protect, roomController.deleteRoom);
 router.get('/rooms/:roomId/activities', protect, activityController.getRoomActivities);
 router.get('/analytics/activities', protect, activityController.getUserActivities);
 
+// Session routes 
+router.put('/sessions/:sessionId/goals', protect, sessionController.updateSessionGoals);
+router.get('/sessions/:sessionId/summary', protect, sessionController.getSessionSummary);
+
 export default router;

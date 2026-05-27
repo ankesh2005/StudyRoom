@@ -25,7 +25,6 @@ export default function SessionGoals({ roomId, sessionId, currentGoals, onGoalsU
 
     setIsSaving(true);
     try {
-      // Save to database via API
       const response = await apiClient.put(`/sessions/${sessionId}/goals`, {
         description: goalDescription,
         targetDuration: parseInt(targetDuration),
@@ -33,7 +32,7 @@ export default function SessionGoals({ roomId, sessionId, currentGoals, onGoalsU
       });
 
       if (response.data.success) {
-        // Broadcast goals to all participants via socket
+        // Broadcast goals to all participants
         socketService.emit('update_session_goals', {
           roomId: roomId,
           sessionId: sessionId,
@@ -46,6 +45,7 @@ export default function SessionGoals({ roomId, sessionId, currentGoals, onGoalsU
         
         toast.success('Goals saved and shared with all participants!');
         setShowGoalModal(false);
+        
         if (onGoalsUpdated) {
           onGoalsUpdated(response.data.data.goals);
         }
@@ -106,7 +106,7 @@ export default function SessionGoals({ roomId, sessionId, currentGoals, onGoalsU
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Target Messages (collaboration goal)
+                  Target Messages (optional)
                 </label>
                 <input
                   type="number"
@@ -116,6 +116,7 @@ export default function SessionGoals({ roomId, sessionId, currentGoals, onGoalsU
                   value={targetMessages}
                   onChange={(e) => setTargetMessages(e.target.value)}
                 />
+                <p className="text-xs text-gray-500 mt-1">Set to 0 to disable message goal</p>
               </div>
 
               {currentGoals?.description && (
@@ -128,7 +129,7 @@ export default function SessionGoals({ roomId, sessionId, currentGoals, onGoalsU
 
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-xs text-blue-800">
-                  💡 Tip: Goals will be visible to all participants in the room!
+                  💡 Goals will be visible to all participants in the room!
                 </p>
               </div>
 

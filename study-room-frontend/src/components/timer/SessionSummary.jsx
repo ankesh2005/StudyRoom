@@ -19,7 +19,7 @@ export default function SessionSummary({ sessionId, onClose }) {
     try {
       console.log("Fetching summary for session:", sessionId);
       const response = await apiClient.get(`/sessions/${sessionId}/summary`);
-      console.log("Summary response:", response.data);
+      console.log("Summary data:", response.data);
       
       if (response.data.success) {
         setSummary(response.data.data);
@@ -39,9 +39,9 @@ export default function SessionSummary({ sessionId, onClose }) {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0) {
-      return `${hours}h ${mins}m`;
+      return `${hours} hour${hours !== 1 ? 's' : ''} ${mins} minute${mins !== 1 ? 's' : ''}`;
     }
-    return `${mins} minutes`;
+    return `${mins} minute${mins !== 1 ? 's' : ''}`;
   };
 
   if (loading) {
@@ -62,7 +62,8 @@ export default function SessionSummary({ sessionId, onClose }) {
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <Card className="w-full max-w-2xl">
           <CardContent className="py-12 text-center">
-            <p className="text-red-600 mb-4">Error: {error}</p>
+            <div className="text-red-600 mb-4">⚠️ Error loading summary</div>
+            <p className="text-sm text-gray-600 mb-4">{error}</p>
             <Button onClick={onClose}>Close</Button>
           </CardContent>
         </Card>
@@ -72,12 +73,15 @@ export default function SessionSummary({ sessionId, onClose }) {
 
   if (!summary) return null;
 
-  const isGoalAchieved = summary.goals?.achieved;
   const hasGoal = summary.goals?.description;
+  const isGoalAchieved = summary.goals?.achieved;
+  const timeProgress = summary.goals?.targetDuration > 0 
+    ? (summary.duration / summary.goals.targetDuration) * 100 
+    : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-      <Card className="w-full max-w-2xl mx-4 my-8">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4">
+      <Card className="w-full max-w-2xl mx-auto my-8">
         <CardHeader>
           <CardTitle className="text-2xl text-center">🎉 Session Complete! 🎉</CardTitle>
         </CardHeader>
@@ -104,22 +108,39 @@ export default function SessionSummary({ sessionId, onClose }) {
 
           {/* Goals Section */}
           {hasGoal && (
-            <div className={`p-4 rounded-lg ${isGoalAchieved ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}`}>
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
-                {isGoalAchieved ? '🎯' : '📌'} Session Goal
+            <div className={`p-4 rounded-lg ${isGoalAchieved ? 'bg-green-50 border-2 border-green-400' : 'bg-yellow-50 border-2 border-yellow-400'}`}>
+              <h3 className="font-bold mb-2 text-lg flex items-center gap-2">
+                {isGoalAchieved ? '🎯✨' : '📌'} Session Goal {isGoalAchieved && '✓ ACHIEVED!'}
               </h3>
-              <p className="text-sm mb-2">{summary.goals.description}</p>
-              <div className="flex justify-between text-sm">
-                <span>Target Duration: {summary.goals.targetDuration} min</span>
-                <span>Actual: {summary.duration} min</span>
+              <p className="text-base font-medium mb-3">{summary.goals.description}</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-white/50 p-2 rounded">
+                  <span className="text-gray-600">Target Duration:</span>
+                  <span className="font-bold text-blue-600 ml-2">{summary.goals.targetDuration} min</span>
+                </div>
+                <div className="bg-white/50 p-2 rounded">
+                  <span className="text-gray-600">Actual Duration:</span>
+                  <span className="font-bold text-green-600 ml-2">{summary.duration} min</span>
+                </div>
               </div>
-              <div className="flex justify-between text-sm mt-1">
-                <span>Target Messages: {summary.goals.targetMessages}</span>
-                <span>Actual: {summary.metrics?.messagesCount || 0}</span>
+              
+              {/* Progress Bar */}
+              <div className="mt-3">
+                <div className="flex justify-between text-xs mb-1">
+                  <span>Progress</span>
+                  <span>{Math.min(Math.round(timeProgress), 100)}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`rounded-full h-2 transition-all duration-500 ${isGoalAchieved ? 'bg-green-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.min(timeProgress, 100)}%` }}
+                  />
+                </div>
               </div>
+              
               {isGoalAchieved && (
-                <div className="mt-2 text-green-600 text-sm font-medium">
-                  ✅ Goal achieved! Great work!
+                <div className="mt-3 text-green-700 text-sm font-medium bg-green-200 p-2 rounded text-center">
+                  🎉 Congratulations! You achieved your study goal! 🎉
                 </div>
               )}
             </div>
@@ -137,12 +158,12 @@ export default function SessionSummary({ sessionId, onClose }) {
               <div className="text-2xl font-bold text-purple-600">
                 {summary.metrics?.messagesCount || 0}
               </div>
-              <p className="text-xs text-gray-500">Total Messages</p>
+              <p className="text-xs text-gray-500">Messages</p>
             </div>
           </div>
 
           {/* Achievements */}
-          {summary.summary?.achievements?.length > 0 && (
+          {summary.summary?.achievements && summary.summary.achievements.length > 0 && (
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="font-semibold mb-2">🏆 Achievements</h3>
               <ul className="space-y-1">
@@ -154,7 +175,7 @@ export default function SessionSummary({ sessionId, onClose }) {
           )}
 
           {/* Session Info */}
-          <div className="text-xs text-gray-400 text-center pt-2">
+          <div className="text-xs text-gray-400 text-center pt-2 border-t">
             <p>Started: {new Date(summary.startTime).toLocaleString()}</p>
             <p>Ended: {new Date(summary.endTime).toLocaleString()}</p>
           </div>

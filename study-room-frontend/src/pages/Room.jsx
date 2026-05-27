@@ -45,20 +45,41 @@ const [goalNotified, setGoalNotified] = useState(false);
     }
   }, [currentRoom, user]);
 
-  // Check goal achievement and notify
+  // Debug: Log whenever elapsedSeconds changes significantly
+useEffect(() => {
+  console.log("Timer update - Minutes:", Math.floor(elapsedSeconds / 60), "Seconds:", elapsedSeconds);
+}, [elapsedSeconds]);
+
+// Check goal achievement and notify
 useEffect(() => {
   if (isRunning && (sessionGoals?.targetDuration || sharedGoals?.targetDuration)) {
     const targetDuration = sessionGoals?.targetDuration || sharedGoals?.targetDuration;
     const currentMinutes = Math.floor(elapsedSeconds / 60);
     
-    if (currentMinutes >= targetDuration) {
+    if (currentMinutes >= targetDuration && targetDuration > 0) {
       if (!goalNotified) {
-        toast.success("🎉 Congratulations! You've achieved your study goal!");
+        const goalDescription = sessionGoals?.description || sharedGoals?.description;
+        console.log("🎉 Goal achieved! 🎉");
+        
+        // Show notification to current user
+        toast.success(`🎉 Congratulations! You've achieved your study goal: "${goalDescription}"! 🎉`, {
+          duration: 5000,
+          icon: '🏆'
+        });
+        
         setGoalNotified(true);
+        
+        // Broadcast to other participants in the room
+        socketService.emit('goal_achieved', {
+          roomId: id,
+          userName: user?.name,
+          goal: goalDescription
+        });
       }
     }
   }
-}, [elapsedSeconds, isRunning, sessionGoals, sharedGoals]);
+}, [elapsedSeconds, isRunning, sessionGoals, sharedGoals, goalNotified]);
+
   // Setup socket connection
   useEffect(() => {
     if (!token || !id) return;
@@ -123,18 +144,21 @@ useEffect(() => {
 
     //session start
     socketService.on("session_started", (data) => {
-      console.log("Session started:", data);
-      toast.success("Study session started!");
+  console.log("Session started:", data);
+  toast.success("Study session started!");
 
-      // Start the session in store
-      startSession(id);
+  // Reset goal notification flag for new session
+  setGoalNotified(false);
 
-      // Use the real session ID from backend
-      if (data.sessionId) {
-        console.log("Real session ID from backend:", data.sessionId);
-        setCurrentSessionId(data.sessionId);
-      }
-    });
+  // Start the session in store
+  startSession(id);
+
+  // Use the real session ID from backend
+  if (data.sessionId) {
+    console.log("Real session ID from backend:", data.sessionId);
+    setCurrentSessionId(data.sessionId);
+  }
+});
 
    socketService.on("session_ended", (data) => {
   console.log("Session ended event received:", data);
@@ -167,6 +191,14 @@ useEffect(() => {
       }
     });
 
+// Listen for goal achievements from other participants
+socketService.on("goal_achieved", (data) => {
+  console.log("Goal achieved by other participant:", data);
+  toast.success(`🎉 ${data.userName} achieved the study goal: "${data.goal}"! 🎉`, {
+    duration: 5000,
+    icon: '🏆'
+  });
+});
     socketService.on("session_active", (data) => {
       console.log("Session already active, syncing timer:", data);
       toast.info("A study session is already in progress!");
@@ -385,6 +417,7 @@ useEffect(() => {
                 )}
               </div>
             </div>
+
 {/* Goals Display - Prominent and Visible to All Participants */}
 {isRunning && (sessionGoals?.description || sharedGoals?.description) && (
   <div className="mt-3 pt-2 border-t border-gray-200">
@@ -546,64 +579,82 @@ useEffect(() => {
         </div>
 
         {/* Participants Sidebar - Fixed width */}
-        <div className="w-72 bg-white border-l flex flex-col flex-shrink-0">
-          <div className="p-3 border-b flex-shrink-0">
-            <h3 className="font-semibold text-gray-700 text-sm">
-              👥 Participants ({participants.length + 1})
-            </h3>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {/* Current User */}
-            <div className="flex items-center justify-between p-2 rounded-lg bg-blue-50">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                  {user?.name?.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-medium text-sm text-gray-900">
-                    {user?.name}
-                  </p>
-                  <p className="text-xs text-green-600">● Online (You)</p>
-                </div>
-              </div>
-              {isOwner && (
-                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                  Owner
-                </span>
-              )}
-            </div>
-
-            {/* Other Participants */}
-            {participants.map((p) => (
-              <div
-                key={p.userId}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                    {p.userName?.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm text-gray-900">
-                      {p.userName}
-                    </p>
-                    <p className="text-xs text-green-600">● Online</p>
-                  </div>
-                </div>
-                {isOwner && p.userId !== user?._id && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleKickUser(p.userId, p.userName)}
-                    className="text-xs h-7 px-2"
-                  >
-                    Kick
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
+<div className="w-72 bg-white border-l flex flex-col flex-shrink-0">
+  <div className="p-3 border-b flex-shrink-0">
+    <h3 className="font-semibold text-gray-700 text-sm">
+      👥 Participants
+    </h3>
+    <p className="text-xs text-gray-500 mt-0.5">
+      Total: {participants.length } {participants.length === 0 ? 'person' : 'people'} in room
+    </p>
+  </div>
+  <div className="flex-1 overflow-y-auto p-3 space-y-2">
+    {/* Current User - Always show current user */}
+    <div className="flex items-center justify-between p-2 rounded-lg bg-blue-50">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+          {user?.name?.charAt(0).toUpperCase()}
         </div>
+        <div>
+          <p className="font-medium text-sm text-gray-900">
+            {user?.name} <span className="text-xs text-gray-500">(You)</span>
+          </p>
+          <p className="text-xs text-green-600">● Online</p>
+        </div>
+      </div>
+      {isOwner && (
+        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Owner</span>
+      )}
+    </div>
+    
+    {/* Other Participants - Filter out current user to avoid duplication */}
+    {participants
+      .filter(p => {
+        // Filter out current user by checking multiple possible ID fields
+        const participantId = p.userId || p.user?._id;
+        return participantId !== user?._id;
+      })
+      .map((p) => {
+        const participantId = p.userId || p.user?._id;
+        const participantName = p.userName || p.user?.name;
+        return (
+          <div key={participantId} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                {participantName?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="font-medium text-sm text-gray-900">
+                  {participantName}
+                </p>
+                <p className="text-xs text-green-600">● Online</p>
+              </div>
+            </div>
+            {isOwner && (
+              <Button 
+                size="sm" 
+                variant="destructive"
+                onClick={() => handleKickUser(participantId, participantName)}
+                className="text-xs h-7 px-2"
+              >
+                Kick
+              </Button>
+            )}
+          </div>
+        );
+      })}
+    
+    {/* Show message when no other participants */}
+    {participants.filter(p => {
+      const participantId = p.userId || p.user?._id;
+      return participantId !== user?._id;
+    }).length === 0 && (
+      <div className="text-center text-gray-400 text-sm py-4">
+        No other participants yet
+      </div>
+    )}
+  </div>
+</div>
       </div>
 
       {/* Invite Modal */}

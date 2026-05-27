@@ -341,6 +341,16 @@ socket.on('update_session_goals', async ({ roomId, sessionId, goals }) => {
     }
   });
   
+  // Goal achievement broadcast to all participants
+socket.on('goal_achieved', ({ roomId, userName, goal }) => {
+  console.log(`🏆 Goal achieved in room ${roomId} by ${userName}: ${goal}`);
+  io.to(roomId).emit('goal_achieved', {
+    userName: userName,
+    goal: goal,
+    timestamp: new Date()
+  });
+});
+  
   // Typing indicator
   socket.on('typing', ({ roomId, isTyping }) => {
     socket.to(roomId).emit('user_typing', {

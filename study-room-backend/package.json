@@ -24,6 +24,7 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "axios": "^1.16.1"
+    "axios": "^1.16.1",
+    "socket.io-client": "^4.8.3"
   }
 }

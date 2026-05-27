@@ -34,4 +34,7 @@ router.get('/rooms/:roomId/sessions', protect, sessionController.getRoomSessions
 router.get('/analytics/dashboard', protect, analyticsController.getDashboard);
 router.get('/analytics/study-history', protect, analyticsController.getStudyHistory);
 
+// delete routes
+router.delete('/rooms/:id', protect, roomController.deleteRoom);
+
 export default router;

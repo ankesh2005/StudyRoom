@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import DashboardLayout from '../components/layouts/DashboardLayout'
 import { Button } from '../components/ui/Button'
@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore'
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const [searchParams] = useSearchParams()
   const { rooms, fetchRooms, createRoom, joinRoom, deleteRoom, isLoading } = useRoomStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
@@ -19,10 +20,23 @@ export default function Dashboard() {
   const [joinRoomId, setJoinRoomId] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
+  const [hasJoinedFromLink, setHasJoinedFromLink] = useState(false)
 
   useEffect(() => {
     fetchRooms()
   }, [])
+
+   // Handle invite link from URL
+  useEffect(() => {
+    const roomIdFromUrl = searchParams.get('join')
+    if (roomIdFromUrl && !hasJoinedFromLink && !isJoining) {
+      console.log('Found room ID in URL:', roomIdFromUrl)
+      setJoinRoomId(roomIdFromUrl)
+      setShowJoinModal(true)
+      setHasJoinedFromLink(true)
+    }
+  }, [searchParams, hasJoinedFromLink, isJoining])
+
 
   const handleCreateRoom = async () => {
     if (!newRoomName.trim()) {

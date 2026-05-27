@@ -4,7 +4,8 @@ import { Button } from '../ui/Button';
 import toast from 'react-hot-toast';
 
 export default function InviteModal({ roomId, roomName, onClose }) {
-  const inviteLink = `${window.location.origin}/dashboard?join=${roomId}`;
+  const baseUrl = window.location.origin;
+  const inviteLink = `${baseUrl}/dashboard?join=${roomId}`;
   
   const copyToClipboard = (text, message) => {
     navigator.clipboard.writeText(text);
@@ -61,7 +62,7 @@ export default function InviteModal({ roomId, roomName, onClose }) {
               </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Share this link for easy joining
+              Share this link - clicking it will open the dashboard and auto-fill the Room ID
             </p>
           </div>
 
@@ -72,9 +73,9 @@ export default function InviteModal({ roomId, roomName, onClose }) {
               <br/>
               1. Copy the Room ID or Invite Link above
               <br/>
-              2. Share with friends
+              2. Share with friends via chat, email, etc.
               <br/>
-              3. They can join from Dashboard using the ID
+              3. They can join using the ID or clicking the link
             </p>
           </div>
 

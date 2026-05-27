@@ -68,11 +68,10 @@ const roomSchema = new mongoose.Schema({
 });
 
 // Generate invite code for private rooms
-roomSchema.pre('save', async function(next) {
-  if (this.settings.isPrivate && !this.settings.inviteCode) {
+roomSchema.pre('save', async function() {
+   if (this.settings.isPrivate && !this.settings.inviteCode) {
     this.settings.inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
   }
-  next();
 });
 
 const Room = mongoose.model('Room', roomSchema);

@@ -19,7 +19,7 @@ const DashboardLayout = ({ children }) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to="/dashboard" className="text-xl font-bold text-blue-600">
-                📚 StudyRoom
+                📚 StudySync
               </Link>
             </div>
             <div className="flex items-center space-x-4">

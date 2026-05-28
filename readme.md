@@ -14,7 +14,7 @@
 
 > **Study together, grow together - Real-time collaborative study platform for exam preparation**
 
-[Live Demo](https://your-demo-url.com) • [Report Bug](https://github.com/your-username/study-sync/issues) • [Request Feature](https://github.com/your-username/study-sync/issues)
+[Live Demo](https://studysync-platform.vercel.app/login) • [Report Bug](https://github.com/your-username/study-sync/issues) • [Request Feature](https://github.com/your-username/study-sync/issues)
 
 </div>
 

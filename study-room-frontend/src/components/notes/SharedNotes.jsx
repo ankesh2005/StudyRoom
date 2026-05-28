@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
 import toast from 'react-hot-toast';
+import apiClient from '../../services/api';  // Use apiClient instead of fetch
 
 export default function SharedNotes({ roomId, socketService, userName }) {
   const [notes, setNotes] = useState('');
@@ -18,7 +18,7 @@ export default function SharedNotes({ roomId, socketService, userName }) {
       console.log('Notes updated by:', data.updatedBy);
       if (data.notes !== notes) {
         setNotes(data.notes);
-        toast.info(`${data.updatedBy} updated the notes`);
+        toast.success(`${data.updatedBy} updated the notes`);
       }
     });
     
@@ -29,17 +29,15 @@ export default function SharedNotes({ roomId, socketService, userName }) {
 
   const loadNotes = async () => {
     try {
-      const response = await fetch(`/api/rooms/${roomId}/notes`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        }
-      });
-      const data = await response.json();
-      if (data.success && data.data.notes) {
-        setNotes(data.data.notes);
+      console.log('Loading notes for room:', roomId);
+      const response = await apiClient.get(`/rooms/${roomId}/notes`);
+      console.log('Load notes response:', response.data);
+      if (response.data.success && response.data.data.notes) {
+        setNotes(response.data.data.notes);
       }
     } catch (error) {
       console.error('Error loading notes:', error);
+      // Don't show error toast for load failures
     }
   };
 
@@ -48,18 +46,11 @@ export default function SharedNotes({ roomId, socketService, userName }) {
     
     setIsSaving(true);
     try {
-      // Save to database
-      const response = await fetch(`/api/rooms/${roomId}/notes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        },
-        body: JSON.stringify({ notes })
-      });
+      console.log('Saving notes for room:', roomId);
+      const response = await apiClient.post(`/rooms/${roomId}/notes`, { notes });
+      console.log('Save notes response:', response.data);
       
-      const data = await response.json();
-      if (data.success) {
+      if (response.data.success) {
         setLastSaved(new Date());
         // Broadcast to all participants
         socketService.emit('update_notes', {
@@ -70,7 +61,7 @@ export default function SharedNotes({ roomId, socketService, userName }) {
       }
     } catch (error) {
       console.error('Error saving notes:', error);
-      toast.error('Failed to save notes');
+      toast.error(error.response?.data?.message || 'Failed to save notes');
     } finally {
       setIsSaving(false);
     }

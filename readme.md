@@ -3247,7 +3247,7 @@ Value: cname.vercel-dns.com
 
 ### Uptime Monitoring (Free)
 
-1. Go to [UptimeRobot](https://uptimerobot.com)
+1. Go to [Corn Job](https://cron-job.org/en/)
 2. Sign up (free tier)
 3. Add monitors:
 
@@ -3408,7 +3408,7 @@ VITE_SOCKET_URL=https://study-sync-api.onrender.com
 
 **🎉 Your app is now LIVE! Share it with the world! 🎉**
 
-**[Live Demo](https://study-sync.vercel.app)** • **[API Status](https://study-sync-api.onrender.com/health)**
+**[Live Demo](https://studysync-platform.vercel.app/login)** • **[API Status](https://studyroom-api-1ezt.onrender.com/health)**
 
 </div>
 

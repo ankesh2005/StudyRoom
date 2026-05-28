@@ -1,8 +1,12 @@
 import axios from 'axios'
 
-// Use relative URL - will be proxied by Vite
+// Use environment variable for API URL
+const API_URL = import.meta.env.VITE_API_URL || '/api'
+
+console.log('API URL:', API_URL)  // Add this to debug
+
 const apiClient = axios.create({
-  baseURL: '/api',  // This will go through Vite proxy to http://localhost:3000/api
+  baseURL: API_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

@@ -49,11 +49,7 @@ const typingTimeoutRef = useRef(null);
     }
   }, [currentRoom, user]);
 
-  // Debug: Log whenever elapsedSeconds changes significantly
-useEffect(() => {
-  console.log("Timer update - Minutes:", Math.floor(elapsedSeconds / 60), "Seconds:", elapsedSeconds);
-}, [elapsedSeconds]);
-
+  
 // Check goal achievement and notify
 useEffect(() => {
   if (isRunning && (sessionGoals?.targetDuration || sharedGoals?.targetDuration)) {
@@ -63,7 +59,7 @@ useEffect(() => {
     if (currentMinutes >= targetDuration && targetDuration > 0) {
       if (!goalNotified) {
         const goalDescription = sessionGoals?.description || sharedGoals?.description;
-        console.log("🎉 Goal achieved! 🎉");
+        
         
         // Show notification to current user
         toast.success(`🎉 Congratulations! You've achieved your study goal: "${goalDescription}"! 🎉`, {
@@ -97,22 +93,22 @@ useEffect(() => {
 
     // Socket event listeners
     socketService.on("participants_update", (data) => {
-      console.log("Participants update:", data);
+      
       setParticipants(data.participants || []);
     });
 
     socketService.on("user_joined", (data) => {
-      console.log("User joined:", data);
+      
       toast.success(`${data.userName} joined the room`);
     });
 
     socketService.on("user_left", (data) => {
-      console.log("User left:", data);
+      
       toast.info(`${data.userName} left the room`);
     });
 
     socketService.on("user_kicked", (data) => {
-      console.log("User kicked:", data);
+      
       toast.info(`${data.userName} was kicked by ${data.kickedBy}`);
       if (data.userId === user?._id) {
         toast.error("You were kicked from the room!");
@@ -130,7 +126,7 @@ useEffect(() => {
     });
 
     socketService.on("new_message", (data) => {
-      console.log("New message received:", data);
+      
       const messageData = data.message || data;
       addMessage(messageData);
       scrollToBottom();
@@ -138,7 +134,7 @@ useEffect(() => {
 
  // user_typing'
 socketService.on("user_typing", (data) => {
-  console.log("Typing event received:", data);
+ 
   if (data.isTyping) {
     setTypingUsers(prev => {
       const newMap = new Map(prev);
@@ -164,7 +160,7 @@ socketService.on("user_typing", (data) => {
 });
     //goald for all
     socketService.on("session_goals_updated", (data) => {
-      console.log("Session goals updated by another participant:", data);
+     
       setSharedGoals(data.goals);
       setSessionGoals(data.goals);
       toast.info(
@@ -174,7 +170,7 @@ socketService.on("user_typing", (data) => {
 
     //session start
     socketService.on("session_started", (data) => {
-  console.log("Session started:", data);
+  
   toast.success("Study session started!");
 
   // Reset goal notification flag for new session
@@ -185,14 +181,13 @@ socketService.on("user_typing", (data) => {
 
   // Use the real session ID from backend
   if (data.sessionId) {
-    console.log("Real session ID from backend:", data.sessionId);
+    
     setCurrentSessionId(data.sessionId);
   }
 });
 
    socketService.on("session_ended", (data) => {
-  console.log("Session ended event received:", data);
-  console.log("Session ID from event:", data.sessionId);
+ 
   
   const minutes = data.duration || 0;
   toast.success(`Session ended! Duration: ${minutes} minutes`);
@@ -202,19 +197,19 @@ socketService.on("user_typing", (data) => {
   
   // Set session ID for summary
   if (data.sessionId) {
-    console.log("Setting currentSessionId for summary:", data.sessionId);
+   
     setCurrentSessionId(data.sessionId);
   }
   
   // Show summary for EVERYONE
   setTimeout(() => {
-    console.log("Showing summary modal for everyone");
+    
     setShowSummary(true);
   }, 500);
 });
 
     socketService.on("timer_sync", (data) => {
-      console.log("Timer sync received:", data);
+      
       // Update timer without restarting it
       if (data.elapsedSeconds !== undefined) {
         updateTimer(data.elapsedSeconds);
@@ -223,14 +218,14 @@ socketService.on("user_typing", (data) => {
 
 // Listen for goal achievements from other participants
 socketService.on("goal_achieved", (data) => {
-  console.log("Goal achieved by other participant:", data);
+  
   toast.success(`🎉 ${data.userName} achieved the study goal: "${data.goal}"! 🎉`, {
     duration: 5000,
     icon: '🏆'
   });
 });
     socketService.on("session_active", (data) => {
-      console.log("Session already active, syncing timer:", data);
+     
       toast.info("A study session is already in progress!");
 
       // Update timer with current elapsed time
@@ -250,7 +245,7 @@ socketService.on("goal_achieved", (data) => {
     });
 
     socketService.on("connect", () => {
-      console.log("Socket connected, joining room:", id);
+      
       setSocketConnected(true);
       socketService.emit("join_room", { roomId: id });
     });
@@ -314,7 +309,7 @@ const handleTypingStop = () => {
       toast.error("Connecting to chat...");
       return;
     }
-    console.log("Sending message:", { roomId: id, content: messageInput });
+    
     socketService.emit("send_message", { roomId: id, content: messageInput });
     setMessageInput("");
   };
@@ -324,7 +319,7 @@ const handleTypingStop = () => {
       toast.error("Please wait, connecting to server...");
       return;
     }
-    console.log("Starting session in room:", id);
+   
     socketService.emit("start_session", { roomId: id });
     startSession(id);
   };
@@ -334,7 +329,7 @@ const handleTypingStop = () => {
       toast.error("Please wait, connecting to server...");
       return;
     }
-    console.log("Ending session in room:", id);
+   
     socketService.emit("end_session", { roomId: id, duration: elapsedSeconds });
     endSession();
 

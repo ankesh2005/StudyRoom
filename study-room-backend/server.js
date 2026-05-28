@@ -23,10 +23,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+app.options('*', cors());
+
 app.use(express.json());
 
 // Routes
 app.use('/api', apiRoutes);
+
 
 // Health check
 app.get('/health', (req, res) => {
@@ -43,9 +46,14 @@ const server = createServer(app);
 // Socket.IO with proper configuration
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:3001', 'http://localhost:3000'],
+    origin: [
+      'http://localhost:3001',
+      'http://localhost:3000',
+      'https://studysync-platform.vercel.app',
+      'https://study-room-ten-weld.vercel.app'
+    ],
     credentials: true,
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST']
   },
   transports: ['websocket', 'polling'],
   allowEIO3: true,

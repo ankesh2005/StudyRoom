@@ -30,7 +30,7 @@ class SocketService {
     // Use different URLs for development and production
     const isProduction = import.meta.env.MODE === 'production'
     const socketUrl = isProduction 
-      ? 'https://studyroom-api-1ezt.onrender.com'  // Production backend
+      ? 'https://studyroom-v4ce.onrender.com'  // Production backend
       : 'http://localhost:3000'  // Development
     
     console.log('Connecting to socket server:', socketUrl)
